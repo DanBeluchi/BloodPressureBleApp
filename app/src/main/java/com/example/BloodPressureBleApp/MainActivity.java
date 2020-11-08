@@ -29,16 +29,17 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
-import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.example.BloodPressureBleApp.Ble.ADGattUUID;
+import com.example.BloodPressureBleApp.Data.BloodPressureMeasurement;
+import com.example.BloodPressureBleApp.Data.User;
 import com.example.BloodPressureBleApp.Database.Database;
-import com.example.BloodPressureBleApp.Model.BloodPressureMeasurement;
-import com.example.BloodPressureBleApp.Model.User;
-import com.example.BloodPressureBleApp.ble.BluetoothLeService;
-//import com.example.BloodPressureBleApp.ble.BluetoothLeService;
+import com.example.BloodPressureBleApp.UserManagement.LoginUserActivity;
+import com.example.BloodPressureBleApp.Ble.BluetoothLeService;
+//import com.example.BloodPressureBleApp.Ble.BluetoothLeService;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -47,57 +48,57 @@ import java.util.UUID;
 
 
 public class MainActivity extends AppCompatActivity {
-    private BluetoothManager bluetoothManager;
-    private BluetoothAdapter bluetoothAdapter;
-    private BluetoothLeService mBluetoothLeService;
-    private BluetoothLeScanner bluetoothLeScanner;
-    //UI
-    TextView tvUsername;
+
+    public static final String ACTIVE_USER_KEY = "activeUser";
+    public static final String MEASUREMENT_LIST_KEY = "listOfMeasurements";
+    public static final UUID BloodPressureService = ADGattUUID.uuidFromShortString("1810");
 
     private static final int REQUEST_ENABLE_BT = 1;
-    static final int USER_SWITCH_SUCCESS = 5;
-    private Button connectButton;
-    private boolean mScanning;
-    private boolean mConnected = false;
-    BluetoothDevice device;
-    List<BloodPressureMeasurement> measurementsHistory;
-    private Listadapter mAdapter;
-    private RecyclerView list;
-    private boolean mIsBindBleServivce = false;
-    public static Database mDb;
-    long userID;
-    User activeUser;
-    String standardUserName = "Daniel";
-
-    private int connectionState = STATE_DISCONNECTED;
+    public static final int USER_SWITCH_SUCCESS = 5;
+    public static final int USER_NOT_REGISTERED = 6;
 
     private static final int STATE_DISCONNECTED = 0;
     private static final int STATE_CONNECTING = 1;
     private static final int STATE_CONNECTED = 2;
 
+    /*Bluetooth */
+    private BluetoothManager mBluetoothManager;
+    private BluetoothAdapter mBluetoothAdapter;
+    private BluetoothLeService mBluetoothLeService;
+    private BluetoothLeScanner mBluetoothLeScanner;
+    BluetoothDevice mBluetoothDevice;
+    private boolean mScanning;
+    private boolean mConnected = false;
+    private boolean mIsBindBleService = false;
 
-    public static final UUID BloodPressureService = uuidFromShortString("1810");
-    // Stops scanning after 10 seconds.
-    private static final long SCAN_PERIOD = 10000;
+    //UI
+    TextView tvUsername;
+    Button mConnectButton;
+    private ListAdapter mAdapter;
+    private RecyclerView mRecyclerView;
+
+    public static Database mDb;
+    String standardUserName = "Daniel";
+    User activeUser;
+    List<BloodPressureMeasurement> measurementsHistory;
+
+    private int connectionState = STATE_DISCONNECTED;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        /*Init UI */
+        mConnectButton = findViewById(R.id.btn_connect);
         tvUsername = findViewById(R.id.tv_user_name);
 
-        /* Initializes Bluetooth adapter */
-        Log.d("Bluetooth Scan", "Init Bluetooth");
-        bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
-        bluetoothAdapter = bluetoothManager.getAdapter();
-        bluetoothLeScanner = BluetoothAdapter.getDefaultAdapter().getBluetoothLeScanner();
-
-        /* Ensures Bluetooth is available on the device and it is enabled. If not,
-           displays a dialog requesting user permission to enable Bluetooth.*/
-        if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled()) {
-            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-        }
+        mRecyclerView = findViewById(R.id.rv_list);
+        mRecyclerView.setHasFixedSize(true);
+        mRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+        // mAdapter = new ListAdapter(measurementsHistory);
+        //recyclerView.setAdapter(mAdapter);
 
         mDb = new Database(this);
         try {
@@ -106,72 +107,83 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
 
-        //Intent intent1 = new Intent(this, BluetoothLeService.class);
-        //startService(intent1);
-
-        doBindBleService();
-
+        /*Checking for saved state*/
         if (savedInstanceState == null) {
             /* no saved State */
-            activeUser = Database.mUserDao.fetchUserByName(standardUserName);
-            measurementsHistory = Database.mMeasurementsResultsDao.fetchAllMeasurementsFromUserByID(activeUser.getId());
-            Toast.makeText(getApplicationContext(), "Getting History for  = " + activeUser.getName(), Toast.LENGTH_SHORT).show();
+            new Thread(new getUserDataFromDB()).start();
         } else {
             /* saved State */
             /* assign saved User and Health information's  from saved state*/
-            activeUser = savedInstanceState.getParcelable("activeUser");
-            measurementsHistory = savedInstanceState.getParcelableArrayList("healtInformation");
+            activeUser = savedInstanceState.getParcelable(ACTIVE_USER_KEY);
+            measurementsHistory = savedInstanceState.getParcelableArrayList(MEASUREMENT_LIST_KEY);
+            tvUsername.setText("Hallo " + activeUser.getmName());
         }
 
-        tvUsername.setText("Hallo " + activeUser.getName());
+        /* Initializes Bluetooth adapter */
+        Log.d("Bluetooth Scan", "Init Bluetooth");
+        mBluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        mBluetoothAdapter = mBluetoothManager.getAdapter();
+        mBluetoothLeScanner = BluetoothAdapter.getDefaultAdapter().getBluetoothLeScanner();
 
-        /*Init UI */
-        connectButton = findViewById(R.id.btn_connect);
-        connectButton.setVisibility(View.INVISIBLE);
-
-        if (bluetoothLeScanner != null) {
-            new Thread(new scanLeDevice()).start();
+        /* Ensures Bluetooth is available on the device and it is enabled. If not,
+           displays a dialog requesting user permission to enable Bluetooth.*/
+        if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
+            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
         }
 
-        list = findViewById(R.id.rv_list);
-        list.setHasFixedSize(true);
+        doBindBleService();
 
-        list.setLayoutManager(new LinearLayoutManager(this));
-
-        mAdapter = new Listadapter(measurementsHistory);
-        list.setAdapter(mAdapter);
-
-
+        /*Register BroadcastReceiver for BluetoothLEService */
         IntentFilter filter = new IntentFilter(BluetoothLeService.ACTION_BLE_SERVICE);
         filter.addAction(BluetoothLeService.ACTION_BLE_DATA_RECEIVED);
         registerReceiver(gattUpdateReceiver, filter);
 
-        connectButton.setVisibility(View.VISIBLE);
-        Log.d("Starting", "Service started");
-        final Handler handler = new Handler(Looper.getMainLooper());
-        connectButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                handler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        BloodPressureMeasurement debugData = new BloodPressureMeasurement(99, "99", "99", "99", "99", 1);
-                        measurementsHistory.add(0, debugData);
-                        mAdapter.notifyDataSetChanged();
-                        Toast.makeText(getApplicationContext(), "UserID = " + userID, Toast.LENGTH_SHORT).show();
+        /*start scanning*/
+        if (mBluetoothLeScanner != null) {
+            new Thread(new scanLeDevice()).start();
+        }
 
-                    }
-                });
-            }
-        });
     }
 
+    /**
+     * Fetches the user entry and the all measurement entries for the standard user.
+     * After the data is fetched the UI os updated
+     */
+    class getUserDataFromDB implements Runnable {
+        @Override
+        public void run() {
+            Log.d(LoginUserActivity.class.getCanonicalName(), "Fetching Data from DB");
+
+            activeUser = Database.mUserDao.fetchUserByName(standardUserName);
+            measurementsHistory = Database.mMeasurementsResultsDao.fetchAllMeasurementsFromUserByID(activeUser.getmId());
+
+            Handler handler = new Handler(Looper.getMainLooper());
+            handler.post(new Runnable() {
+                @Override
+                public void run() {
+                    Log.d(MainActivity.class.getCanonicalName(), "Username: " + activeUser.getmName() + ", Measurements found: " + measurementsHistory.size());
+                    tvUsername.setText("Hallo " + activeUser.getmName());
+
+                    mAdapter = new ListAdapter(measurementsHistory);
+                    mRecyclerView.setAdapter(mAdapter);
+                }
+            });
+        }
+    }
+
+    /**
+     * Interface for monitoring the state of an application service.  See
+     * {@link android.app.Service} and
+     * {@link Context#bindService Context.bindService()} for more information.
+     * <p>Like many callbacks from the system, the methods on this class are called
+     * from the main thread of your process.
+     */
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
 
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder service) {
-            //BluetoothLeService.LocalBinder binder = (BluetoothLeService.LocalBinder) service;
-            Log.d("ServiceConnection", "Trying to bind service ");
+            Log.d(MainActivity.class.getCanonicalName(), "Trying to bind service ");
             mBluetoothLeService = ((BluetoothLeService.LocalBinder) service).getService();
             if (!mBluetoothLeService.initialize()) {
                 Log.e("ServiceConnection", "Unable to initialize Bluetooth");
@@ -188,6 +200,20 @@ public class MainActivity extends AppCompatActivity {
 
     };
 
+    /**
+     * Perform any final cleanup before an activity is destroyed.
+     * Unbind service.
+     */
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        doUnbindBleRService();
+        mBluetoothLeService = null;
+    }
+
+    /**
+     * Scan filter is set to only scan for Bluetooth devices with a Blood Pressure Service.
+     */
     class scanLeDevice implements Runnable {
 
         @Override
@@ -199,33 +225,38 @@ public class MainActivity extends AppCompatActivity {
             scanFilterList.add(bpUuid);
 
             ScanSettings scanSettings = new ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_BALANCED).build();
-            bluetoothLeScanner.startScan(scanFilterList, scanSettings, leScanCallback);
+            mBluetoothLeScanner.startScan(scanFilterList, scanSettings, leScanCallback);
 
-            Log.d("Bluetooth Scan", "Started Scanning");
+            Log.d(MainActivity.class.getCanonicalName(), "Started Scanning");
         }
     }
 
-    // Device scan callback.
+    /**
+     * Bluetooth LE scan callbacks. Scan results are reported using these callbacks.
+     *
+     * @see BluetoothLeScanner#startScan
+     */
     private ScanCallback leScanCallback =
             new ScanCallback() {
                 @Override
                 public void onScanResult(int callbackType, final ScanResult result) {
-                    device = result.getDevice();
-                    Log.d("Bluetooth Scan", "DEVICE FOUND");
-                    mBluetoothLeService.connect(device.getAddress());
+                    mBluetoothDevice = result.getDevice();
                     final Handler handler = new Handler(Looper.getMainLooper());
                     handler.post(new Runnable() {
                         @Override
                         public void run() {
-                            if (device != null) {
-                                Log.d("Bluetooth Scan", "DEVICE FOUND" + device.getName());
+                            if (mBluetoothDevice != null) {
+                                Log.d("Bluetooth Scan", "DEVICE FOUND" + mBluetoothDevice.getName());
+                                mBluetoothLeService.connect(mBluetoothDevice.getAddress());
                             }
                         }
                     });
                 }
             };
 
-    // Handles various events fired by the Service.
+    /**
+     * Handles various events fired by the Service. TODO
+     */
     private final BroadcastReceiver gattUpdateReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -249,24 +280,19 @@ public class MainActivity extends AppCompatActivity {
                 String timeStamp = intent.getStringExtra("Timestamp");
 
                 //add to database
-                BloodPressureMeasurement newData = Database.mMeasurementsResultsDao.addMeasurementResult(systolic, diastolic, pulse, timeStamp, activeUser.getId());
+                BloodPressureMeasurement newData = Database.mMeasurementsResultsDao.addMeasurementResult(systolic, diastolic, pulse, timeStamp, activeUser.getmId());
                 int position = 0;
                     /* if the database operation was successful we can add the received data to the measurement history so we do not need to
                     make another query to get the complete list with the new data to update the recycler view*/
                 if (newData != null) {
-                    measurementsHistory.add(0, newData);
-                    mAdapter.notifyDataSetChanged();
+                    measurementsHistory.add(position, newData);
+                    mAdapter.notifyItemInserted(position);
                 }
-
-                mAdapter.notifyItemInserted(position);
             }
         }
     };
 
-    public static UUID uuidFromShortString(String uuid) {
-        return UUID.fromString(String.format("0000%s-0000-1000-8000-00805f9b34fb", uuid));
-    }
-
+    //////////////////////////* Create and setting up Menu *///////////////////////////////
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
@@ -278,9 +304,8 @@ public class MainActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
 
         switch (item.getItemId()) {
-
             case R.id.dummy:
-                //todo
+                //TODO
                 break;
 
             case R.id.dummy1:
@@ -288,10 +313,8 @@ public class MainActivity extends AppCompatActivity {
                 break;
 
             case R.id.switch_user:
-                /* refresh weather data */
-                Intent intent = new Intent(this, SwitchUserActivity.class);
+                Intent intent = new Intent(this, LoginUserActivity.class);
 
-                /* start FavoritesActivity */
                 startActivityForResult(intent, 1);
                 break;
 
@@ -302,52 +325,50 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    //////////////////////////* Data returned from SwitchUserActivity *///////////////////////////////
+    //////////////////////////* Data returned from LoginUserActivity *///////////////////////////////
 
-    /*check if result was returned from SwitchUserActivity */
+    /*check if result was returned from LoginUserActivity */
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == 1) {
             if (resultCode == USER_SWITCH_SUCCESS) {
-                activeUser = data.getParcelableExtra("activeUser");
+                activeUser = data.getParcelableExtra(ACTIVE_USER_KEY);
+                measurementsHistory = data.getParcelableArrayListExtra(MEASUREMENT_LIST_KEY);
 
-                tvUsername.setText("Hallo " + activeUser.getName());
+                tvUsername.setText("Hallo " + activeUser.getmName());
 
-                measurementsHistory = Database.mMeasurementsResultsDao.fetchAllMeasurementsFromUserByID(activeUser.getId());
-
-                mAdapter = new Listadapter(measurementsHistory);
-                list.setAdapter(mAdapter);
+                mAdapter = new ListAdapter(measurementsHistory);
+                mRecyclerView.setAdapter(mAdapter);
             }
         }
     }
 
     ///////////////////////////* Save data for the next onCreate *//////////////////////////////////
-    /* save data for the next onCreate */
     @Override
     protected void onSaveInstanceState(@NonNull Bundle outState) {
-        Log.d("MainActivity", "Trying to save instance ");
+        Log.d(MainActivity.class.getCanonicalName(), "Trying to save instance ");
         /* Store active user  and health information's to the savedInstanceState */
-        outState.putParcelable("activeUser", activeUser);
-        outState.putParcelableArrayList("healtInformation", (ArrayList<? extends Parcelable>) measurementsHistory);
+        outState.putParcelable(ACTIVE_USER_KEY, activeUser);
+        outState.putParcelableArrayList(MEASUREMENT_LIST_KEY, (ArrayList<? extends Parcelable>) measurementsHistory);
 
         super.onSaveInstanceState(outState);
     }
 
 
     private void doBindBleService() {
-        if (!mIsBindBleServivce) {
+        if (!mIsBindBleService) {
             Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
             bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
 
-            mIsBindBleServivce = true;
+            mIsBindBleService = true;
         }
     }
 
     private void doUnbindBleRService() {
-        if (mIsBindBleServivce) {
+        if (mIsBindBleService) {
             unbindService(mServiceConnection);
-            mIsBindBleServivce = false;
+            mIsBindBleService = false;
         }
     }
 }

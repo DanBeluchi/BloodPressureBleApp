@@ -1,4 +1,4 @@
-package com.example.BloodPressureBleApp.ble;
+package com.example.BloodPressureBleApp.Ble;
 
 import android.annotation.SuppressLint;
 import android.app.Service;
@@ -19,13 +19,14 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.util.Log;
 
+import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 
-import static com.example.BloodPressureBleApp.ble.ADGattUUID.BloodPressureMeasurement;
-import static com.example.BloodPressureBleApp.ble.ADGattUUID.BloodPressureService;
+import static com.example.BloodPressureBleApp.Ble.ADGattUUID.BloodPressureMeasurement;
+import static com.example.BloodPressureBleApp.Ble.ADGattUUID.BloodPressureService;
 
 
 /**
@@ -33,21 +34,24 @@ import static com.example.BloodPressureBleApp.ble.ADGattUUID.BloodPressureServic
  * given Bluetooth LE device.
  */
 public class BluetoothLeService extends Service {
-    private final static String TAG = BluetoothLeService.class.getSimpleName();
-    BluetoothManager bluetoothManager;
-    BluetoothAdapter mBluetoothAdapter;
 
-    private static BluetoothLeService bleService;
-    private String mBluetoothDeviceAddress;
-    private BluetoothGatt mBluetoothGatt;
-    private int mConnectionState = STATE_DISCONNECTED;
-    public String operation = "pair";
-    private Handler uiThreadHandler = new Handler(Looper.getMainLooper());
-    private long indicationDelay = Long.MIN_VALUE;
+    private final static String TAG = BluetoothLeService.class.getSimpleName();
 
     private static final int STATE_DISCONNECTED = 0;
     private static final int STATE_CONNECTING = 1;
     private static final int STATE_CONNECTED = 2;
+
+    BluetoothManager mBluetoothManager;
+    BluetoothAdapter mBluetoothAdapter;
+    private BluetoothGatt mBluetoothGatt;
+
+    private static BluetoothLeService bleService;
+    private String mBluetoothDeviceAddress;
+    public String operation = "pair";
+    private Handler uiThreadHandler = new Handler(Looper.getMainLooper());
+    private long indicationDelay = Long.MIN_VALUE;
+
+    private int mConnectionState = STATE_DISCONNECTED;
 
     public final static String ACTION_GATT_CONNECTED =
             "com.example.bluetooth.le.ACTION_GATT_CONNECTED";
@@ -57,8 +61,8 @@ public class BluetoothLeService extends Service {
             "com.example.bluetooth.le.ACTION_GATT_SERVICES_DISCOVERED";
 
 
-    public static final String ACTION_BLE_SERVICE = "jp.co.aandd.andblelink.ble.BLE_SERVICE";
-    public static final String ACTION_BLE_DATA_RECEIVED = "jp.co.aandd.andblelink.ble.data_received";
+    public static final String ACTION_BLE_SERVICE = ".BLE_SERVICE";
+    public static final String ACTION_BLE_DATA_RECEIVED = ".BLE_DATA_RECEIVED";
 
     public BluetoothGatt getGatt() {
         return mBluetoothGatt;
@@ -71,17 +75,17 @@ public class BluetoothLeService extends Service {
     public boolean initialize() {
         // For API level 18 and above, get a reference to BluetoothAdapter through
         // BluetoothManager.
-        if (bluetoothManager == null) {
-            bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        if (mBluetoothManager == null) {
+            mBluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
             Log.d("Bluetooth Scan", "Init Bluetooth");
-            if (bluetoothManager == null) {
+            if (mBluetoothManager == null) {
                 Log.e(TAG, "Unable to initialize BluetoothManager.");
                 return false;
             }
         }
 
 
-        mBluetoothAdapter = bluetoothManager.getAdapter();
+        mBluetoothAdapter = mBluetoothManager.getAdapter();
         if (mBluetoothAdapter == null) {
             Log.e(TAG, "Unable to obtain a BluetoothAdapter.");
             return false;
@@ -121,7 +125,7 @@ public class BluetoothLeService extends Service {
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 //when we first connect to the device we set the time and date
                 //Log.d("AD","Case of pair hence set time");
-                //setupDateTime(gatt);
+                setupDateTime(gatt);
                 //if we connect to get the measurement setnotification
                 setNotification(gatt, true);
                 broadcastUpdate(ACTION_GATT_SERVICES_DISCOVERED);
@@ -129,20 +133,14 @@ public class BluetoothLeService extends Service {
 
         }
 
-        @Override
-        public void onCharacteristicRead(BluetoothGatt gatt,
-                                         BluetoothGattCharacteristic characteristic,
-                                         int status) {
-            Log.d(TAG, "onCharacteristicRead() characteristic=" + characteristic.getUuid().toString());
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                parseCharacteristicValue(gatt, characteristic);
-            }
-        }
 
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt,
                                             BluetoothGattCharacteristic characteristic) {
             Log.d(TAG, "onCharacteristicChanged()" + "characteristic=" + characteristic.getUuid().toString());
+           // byte[] values = characteristic.getValue();
+            //ByteBuffer bufS = ByteBuffer.wrap(new byte[]{values[2], values[1]});
+            //short sys = bufS.getShort();
             parseCharacteristicValue(gatt, characteristic);
         }
 
@@ -284,17 +282,6 @@ public class BluetoothLeService extends Service {
         mBluetoothGatt.readCharacteristic(characteristic);
     }
 
-    /**
-     * Retrieves a list of supported GATT services on the connected device. This should be
-     * invoked only after {@code BluetoothGatt#discoverServices()} completes successfully.
-     *
-     * @return A {@code List} of supported services.
-     */
-    public List<BluetoothGattService> getSupportedGattServices() {
-        if (mBluetoothGatt == null) return null;
-        return mBluetoothGatt.getServices();
-    }
-
     public boolean setupDateTime(BluetoothGatt gatt) {
         boolean isSuccess = false;
         if (gatt != null) {
@@ -305,8 +292,8 @@ public class BluetoothLeService extends Service {
 
     protected boolean setDateTimeSetting(BluetoothGatt gatt, Calendar cal) {
         boolean isSuccess = false;
-
         BluetoothGattService gattService = gatt.getService(BloodPressureService);
+
         if (gattService != null) {
             BluetoothGattCharacteristic characteristic = gattService.getCharacteristic(ADGattUUID.DateTime);
             if (characteristic != null) {

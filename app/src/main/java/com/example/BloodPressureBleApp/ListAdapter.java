@@ -12,17 +12,17 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.BloodPressureBleApp.Data.BloodPressureMeasurement;
 import com.example.BloodPressureBleApp.Database.Database;
-import com.example.BloodPressureBleApp.Model.BloodPressureMeasurement;
 
 import java.util.List;
 
-public class Listadapter extends RecyclerView.Adapter<Listadapter.ItemViewHolder> {
+public class ListAdapter extends RecyclerView.Adapter<ListAdapter.ItemViewHolder> {
 
     private List<BloodPressureMeasurement> mItems;
     private Context mContext;
 
-    public Listadapter(List<BloodPressureMeasurement> mItems) {
+    public ListAdapter(List<BloodPressureMeasurement> mItems) {
         this.mItems = mItems;
     }
 
@@ -70,16 +70,16 @@ public class Listadapter extends RecyclerView.Adapter<Listadapter.ItemViewHolder
         }
 
         void bind(int index) {
-            tvSystolic.setText(mItems.get(index).getSystolic());
-            tvDiastolic.setText(String.valueOf(mItems.get(index).getDiastolic()));
-            tvPulse.setText(String.valueOf(mItems.get(index).getPulse()));
-            tvDateTime.setText(String.valueOf(mItems.get(index).getTimeStamp()));
+            tvSystolic.setText(mItems.get(index).getmSystolic());
+            tvDiastolic.setText(String.valueOf(mItems.get(index).getmDiastolic()));
+            tvPulse.setText(String.valueOf(mItems.get(index).getmPulse()));
+            tvDateTime.setText(String.valueOf(mItems.get(index).getmTimeStamp()));
         }
 
         @Override
         public void onClick(View view) {
             Toast.makeText(mContext, String.valueOf(mItems.get(getAdapterPosition())), Toast.LENGTH_LONG).show();
-            int deletedRows = Database.mMeasurementsResultsDao.deleteMeasurementById(mItems.get(getAdapterPosition()).getMeasurementID());
+            int deletedRows = Database.mMeasurementsResultsDao.deleteMeasurementById(mItems.get(getAdapterPosition()).getmMeasurementId());
             if (deletedRows > 0) {
                 mItems.remove(getAdapterPosition());
                 notifyDataSetChanged();

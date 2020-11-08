@@ -13,8 +13,9 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity android:name="com.example.BloodPressureBleApp.SwitchUserActivity"></activity>
-        <activity android:name="com.example.BloodPressureBleApp.MainActivity">
+        <activity android:name=".UserManagement.RegisterUserActivity" />
+        <activity android:name=".UserManagement.LoginUserActivity" />
+        <activity android:name=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -23,7 +24,7 @@
         </activity>
 
         <service
-            android:name="com.example.BloodPressureBleApp.ble.BluetoothLeService"
+            android:name=".Ble.BluetoothLeService"
             android:enabled="true" />
 
         <meta-data

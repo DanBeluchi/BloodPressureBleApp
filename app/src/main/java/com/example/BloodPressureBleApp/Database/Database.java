@@ -19,7 +19,6 @@ public class Database {
 
         mUserDao = new UserDAO(mDbHelper);
         mMeasurementsResultsDao = new MeasurementResultsDAO(mDbHelper);
-
     }
 
     public void close() {

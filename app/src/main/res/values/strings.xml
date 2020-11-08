@@ -1,4 +1,22 @@
 <resources>
     <string name="app_name">BloodPressureBleApp</string>
     <string name="connect">Connect</string>
+    <string name="login">SIGN IN</string>
+    <string name="enter_username">Username</string>
+    <string name="pleas_enter_a_username">Please enter a Username</string>
+    <string name="please_enter_a_password">Please enter a password</string>
+    <string name="password">password</string>
+    <string name="title_activity_login">LoginActivity</string>
+    <string name="prompt_email">Email</string>
+    <string name="prompt_password">Password</string>
+    <string name="action_sign_in">Sign in or register</string>
+    <string name="action_sign_in_short">Sign in</string>
+    <string name="welcome">"Welcome !"</string>
+    <string name="invalid_username">Not a valid username</string>
+    <string name="invalid_password">Password must be >5 characters</string>
+    <string name="login_failed">"Login failed"</string>
+    <string name="age">Age</string>
+    <string name="register">Register</string>
+    <string name="please_enter_your_age">Please enter your age</string>
+    <string name="no_account_yet_register_now">No account yet? Create one here</string>
 </resources>

@@ -11,17 +11,26 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "Health.db";
     public static final int DATABASE_VERSION = 1;
 
-    public static final String USER_TABLE = "USER_TABLE";
-    public static final String HEALTH_INFORMATION_TABLE = "HEALTH_INFORMATION_TABLE";
-    public static final String COLUMN_USER_NAME = "USER_NAME";
-    public static final String COLUMN_USER_AGE = "USER_AGE";
 
-    public static final String COLUMN_MEASUREMENT_ID = "ID";
-    public static final String COLUMN_SYSTOLIC_VALUE = "SYSTOLIC_VALUE";
-    public static final String COLUMN_DIASTOLIC_VALUE = "DIASTOLIC_VALUE";
-    public static final String COLUMN_PULSE_VALUE = "PULSE_VALUE";
-    public static final String COLUMN_MEASUREMENT_DATE_TIME = "MEASUREMENT_DATE_TIME";
-    public static final String COLUMN_USER_ID = "USER_ID";
+    private static final String SQL_CREATE_USER_TABLE = "CREATE TABLE " + UserContractClass.UserEntry.TABLE_NAME +
+            "(" + UserContractClass.UserEntry._ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+            UserContractClass.UserEntry.COLUMN_USER_NAME + " TEXT UNIQUE, " +
+            UserContractClass.UserEntry.COLUMN_USER_PASSWORD + " TEXT, " +
+            UserContractClass.UserEntry.COLUMN_USER_AGE + " INT)";
+
+
+    private static final String SQL_CREATE_MEASUREMENTS_TABLE = "CREATE TABLE " + MeasurementResultsContractClass.MeasurementEntry.TABLE_NAME +
+            "(" + MeasurementResultsContractClass.MeasurementEntry._ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+            MeasurementResultsContractClass.MeasurementEntry.COLUMN_SYSTOLIC_VALUE + " TEXT, " +
+            MeasurementResultsContractClass.MeasurementEntry.COLUMN_DIASTOLIC_VALUE + " TEXT, " +
+            MeasurementResultsContractClass.MeasurementEntry.COLUMN_PULSE_VALUE + " TEXT, " +
+            MeasurementResultsContractClass.MeasurementEntry.COLUMN_MEASUREMENT_DATE_TIME + " TEXT, " +
+            MeasurementResultsContractClass.MeasurementEntry.COLUMN_USER_ID + " INTEGER, FOREIGN KEY" +
+            "(" + MeasurementResultsContractClass.MeasurementEntry.COLUMN_USER_ID + ") REFERENCES " +
+            UserContractClass.UserEntry.TABLE_NAME + "(" + UserContractClass.UserEntry._ID + "))";
+
+    private static final String SQL_DELETE_USER_ENTRIES = "DROP TABLE IF EXISTS " + UserContractClass.UserEntry.TABLE_NAME;
+    private static final String SQL_DELETE_MEASUREMENT_ENTRIES = "DROP TABLE IF EXISTS " + MeasurementResultsContractClass.MeasurementEntry.TABLE_NAME;
 
     public DatabaseHelper(@Nullable Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -30,13 +39,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     //called the first time a database is accessed
     @Override
     public void onCreate(SQLiteDatabase db) {
-        String createUserTableStatement = "CREATE TABLE " + USER_TABLE + " (ID INTEGER PRIMARY KEY AUTOINCREMENT, " + COLUMN_USER_NAME + " TEXT UNIQUE, " + COLUMN_USER_AGE + " INT)";
-        String createBloodPressureTableStatement = "CREATE TABLE " + HEALTH_INFORMATION_TABLE + " (ID INTEGER PRIMARY KEY AUTOINCREMENT, " + COLUMN_SYSTOLIC_VALUE + " TEXT, " + COLUMN_DIASTOLIC_VALUE + " TEXT, " + COLUMN_PULSE_VALUE + " TEXT, " + COLUMN_MEASUREMENT_DATE_TIME + " TEXT, " + COLUMN_USER_ID + " INTEGER, FOREIGN KEY(" + COLUMN_USER_ID + ") REFERENCES " + USER_TABLE + "(ID))";
-
-        db.execSQL(createUserTableStatement);
-        db.execSQL(createBloodPressureTableStatement);
-
-
+        db.execSQL(SQL_CREATE_USER_TABLE);
+        db.execSQL(SQL_CREATE_MEASUREMENTS_TABLE);
     }
 
     // Foreign Key Constraint is not enabled by default
@@ -49,7 +53,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     //called if the database version number changes
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-
+        db.execSQL(SQL_DELETE_USER_ENTRIES);
+        db.execSQL(SQL_DELETE_MEASUREMENT_ENTRIES);
+        onCreate(db);
     }
 
 
