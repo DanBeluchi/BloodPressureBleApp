@@ -5,7 +5,7 @@
     <string name="enter_username">Username</string>
     <string name="pleas_enter_a_username">Please enter a Username</string>
     <string name="please_enter_a_password">Please enter a password</string>
-    <string name="password">password</string>
+    <string name="password">Password</string>
     <string name="title_activity_login">LoginActivity</string>
     <string name="prompt_email">Email</string>
     <string name="prompt_password">Password</string>

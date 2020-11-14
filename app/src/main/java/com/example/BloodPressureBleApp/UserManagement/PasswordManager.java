@@ -13,11 +13,11 @@ public class PasswordManager {
     private final int PBKDF2_ITERATIONS = 1000;
 
     /**
-     * Takes the entered password and hashes it. Returs a string in the format (iterations:salt:hash)
+     * Takes the entered password and hashes it. Returns a string in the format (iterations:salt:hash)
      *
      * @param password the password.
      *
-     *@return string with the hased password
+     *@return formatted string (iterations:salt:hash)
      */
     public String hashPassword(String password) {
         return convertToPBKDF2(password.toCharArray());

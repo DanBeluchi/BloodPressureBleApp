@@ -212,7 +212,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * Scan filter is set to only scan for Bluetooth devices with a Blood Pressure Service.
+     * Scan filter is set to only scan for BLE devices with a Blood Pressure Service.
      */
     class scanLeDevice implements Runnable {
 

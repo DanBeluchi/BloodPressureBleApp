@@ -73,11 +73,8 @@ public class MeasurementResultsDAO {
 
 
     public int deleteMeasurementById(long measurementID) {
-
-
         SQLiteDatabase db = mDatabase.getWritableDatabase();
 
-        // Cursor cursor = db.rawQuery(queryString, null);
         int numberOfRowsDeleted = db.delete(MeasurementResultsContractClass.MeasurementEntry.TABLE_NAME, MeasurementResultsContractClass.MeasurementEntry._ID + "=" + measurementID, null);
 
         db.close();
