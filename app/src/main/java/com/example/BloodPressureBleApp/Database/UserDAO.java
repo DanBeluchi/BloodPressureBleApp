@@ -2,6 +2,7 @@ package com.example.BloodPressureBleApp.Database;
 
 import android.content.ContentValues;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteConstraintException;
 import android.database.sqlite.SQLiteDatabase;
 
 import com.example.BloodPressureBleApp.Data.User;
@@ -104,18 +105,24 @@ public class UserDAO {
     }
 
 
-    public long addUser(User user) {
+    public long addUser(User user) throws SQLiteConstraintException{
         SQLiteDatabase db = mDatabase.getWritableDatabase();
         ContentValues cv = new ContentValues();
+        long insert;
 
         cv.put(UserContractClass.UserEntry.COLUMN_USER_NAME, user.getmName());
         cv.put(UserContractClass.UserEntry.COLUMN_USER_PASSWORD, user.getmPassword());
         cv.put(UserContractClass.UserEntry.COLUMN_USER_AGE, user.getmAge());
+        try{
+            insert = db.insertOrThrow(UserContractClass.UserEntry.TABLE_NAME, null, cv);
+        } catch (SQLiteConstraintException ex) {
+            throw new SQLiteConstraintException();
+        } finally {
+            db.close();
+        }
 
-        long insert = db.insert(UserContractClass.UserEntry.TABLE_NAME, null, cv);
-
-        db.close();
         return insert;
+
     }
 
 

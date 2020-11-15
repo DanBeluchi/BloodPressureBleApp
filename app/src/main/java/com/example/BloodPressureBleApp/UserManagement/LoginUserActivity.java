@@ -36,6 +36,8 @@ import static com.example.BloodPressureBleApp.MainActivity.USER_SWITCH_SUCCESS;
 public class LoginUserActivity extends AppCompatActivity {
 
     public static final String NEW_USER_KEY = "new_user_entered";
+    public static final String ALL_USER_KEY = "all_user";
+
     static final int USER_REGISTERED = 7;
 
     EditText editFieldPassword;
@@ -56,7 +58,6 @@ public class LoginUserActivity extends AppCompatActivity {
         spUserList = findViewById(R.id.sp_user_list);
 
         editFieldPassword = findViewById(R.id.et_password);
-        noPassword = findViewById(R.id.tv_no_password_entered);
         btnEnter = findViewById(R.id.btn_enter);
         btnEnter.setEnabled(false);
 
@@ -158,7 +159,9 @@ public class LoginUserActivity extends AppCompatActivity {
 
    public void onClick(View v) {
         Intent i = new Intent(getApplicationContext(), RegisterUserActivity.class);
-        startActivityForResult(i, 2);
+        //not sure if needed
+        i.putParcelableArrayListExtra(ALL_USER_KEY, (ArrayList<? extends Parcelable>) allUser);
+        startActivityForResult(i, 1);
     }
 
 
@@ -167,10 +170,10 @@ public class LoginUserActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == 1) {
             if (resultCode == USER_REGISTERED) {
+
                 if(data.hasExtra(ACTIVE_USER_KEY)){
                     userFromDB = data.getParcelableExtra(ACTIVE_USER_KEY);
                 }
-                userFromDB = Database.mUserDao.fetchUserByName(userName);
                 //create new list because new user has no measurement history
                 measurementsHistory = new ArrayList<>();
 

@@ -19,4 +19,5 @@
     <string name="register">Register</string>
     <string name="please_enter_your_age">Please enter your age</string>
     <string name="no_account_yet_register_now">No account yet? Create one here</string>
+    <string name="confirm_password">Confirm Password</string>
 </resources>
