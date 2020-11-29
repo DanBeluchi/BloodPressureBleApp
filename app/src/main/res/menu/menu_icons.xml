@@ -4,20 +4,15 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <item
-        android:id="@+id/dummy"
-        android:icon="@null"
-        android:title="Change Location"
-        app:showAsAction="never" />
-    <item
-        android:id="@+id/dummy1"
-        android:icon="@null"
-        android:title="Favoriten"
-        app:showAsAction="never" />
-
-    <item
         android:id="@+id/switch_user"
         android:icon="@mipmap/ic_switch_user_wh_foreground"
         android:title="Refresh"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/settings"
+        android:icon="@drawable/ic_baseline_settings_24"
+        android:title="@string/settings"
         app:showAsAction="ifRoom" />
 
 </menu>

@@ -19,10 +19,8 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.util.Log;
 
-import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
-import java.util.List;
 import java.util.Locale;
 
 import static com.example.BloodPressureBleApp.Ble.ADGattUUID.BloodPressureMeasurement;
@@ -40,6 +38,8 @@ public class BluetoothLeService extends Service {
     private static final int STATE_DISCONNECTED = 0;
     private static final int STATE_CONNECTING = 1;
     private static final int STATE_CONNECTED = 2;
+    public static final String PAIR_OPERATION = "pair";
+    public static final String RECEIVE_DATA_OPERATION = "receive_data";
 
     BluetoothManager mBluetoothManager;
     BluetoothAdapter mBluetoothAdapter;
@@ -47,21 +47,15 @@ public class BluetoothLeService extends Service {
 
     private static BluetoothLeService bleService;
     private String mBluetoothDeviceAddress;
-    public String operation = "pair";
+    public String operation = null;
     private Handler uiThreadHandler = new Handler(Looper.getMainLooper());
     private long indicationDelay = Long.MIN_VALUE;
 
     private int mConnectionState = STATE_DISCONNECTED;
 
-    public final static String ACTION_GATT_CONNECTED =
-            "com.example.bluetooth.le.ACTION_GATT_CONNECTED";
-    public final static String ACTION_GATT_DISCONNECTED =
-            "com.example.bluetooth.le.ACTION_GATT_DISCONNECTED";
-    public final static String ACTION_GATT_SERVICES_DISCOVERED =
-            "com.example.bluetooth.le.ACTION_GATT_SERVICES_DISCOVERED";
-
 
     public static final String ACTION_BLE_SERVICE = ".BLE_SERVICE";
+    public static final String ACTION_BLE_DEVICE_PAIRED = ".BLE_DEVICE_PAIRED";
     public static final String ACTION_BLE_DATA_RECEIVED = ".BLE_DATA_RECEIVED";
 
     public BluetoothGatt getGatt() {
@@ -93,117 +87,6 @@ public class BluetoothLeService extends Service {
 
         return true;
     }
-
-    // Implements callback methods for GATT events that the app cares about.  For example,
-    // connection change and services discovered.
-    private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
-        @Override
-        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-            String intentAction;
-            if (newState == BluetoothProfile.STATE_CONNECTED) {
-                intentAction = ACTION_GATT_CONNECTED;
-                mConnectionState = STATE_CONNECTED;
-
-                broadcastUpdate(intentAction);
-                Log.i(TAG, "Connected to GATT server.");
-                // Attempts to discover services after successful connection.
-                Log.i(TAG, "Attempting to start service discovery:" +
-                        mBluetoothGatt.discoverServices());
-
-            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                intentAction = ACTION_GATT_DISCONNECTED;
-                mConnectionState = STATE_DISCONNECTED;
-                Log.i(TAG, "Disconnected from GATT server.");
-                broadcastUpdate(intentAction);
-            }
-        }
-
-        @Override
-        public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-            BluetoothDevice device = gatt.getDevice();
-            Log.d(TAG, "onServicesDiscovered()" + device.getAddress() + ", " + device.getName() + ", status=" + status);
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                //when we first connect to the device we set the time and date
-                //Log.d("AD","Case of pair hence set time");
-                setupDateTime(gatt);
-                //if we connect to get the measurement setnotification
-                setNotification(gatt, true);
-                broadcastUpdate(ACTION_GATT_SERVICES_DISCOVERED);
-            }
-
-        }
-
-
-        @Override
-        public void onCharacteristicChanged(BluetoothGatt gatt,
-                                            BluetoothGattCharacteristic characteristic) {
-            Log.d(TAG, "onCharacteristicChanged()" + "characteristic=" + characteristic.getUuid().toString());
-           // byte[] values = characteristic.getValue();
-            //ByteBuffer bufS = ByteBuffer.wrap(new byte[]{values[2], values[1]});
-            //short sys = bufS.getShort();
-            parseCharacteristicValue(gatt, characteristic);
-        }
-
-        @Override
-        public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-            BluetoothDevice device = gatt.getDevice();
-            Log.d(TAG, "onCharacteristicWrite()" + device.getAddress() + ", " + device.getName() + " characteristic=" + characteristic.getUuid().toString());
-            String serviceUuidString = characteristic.getService().getUuid().toString();
-            String characteristicUuidString = characteristic.getUuid().toString();
-
-            if (operation.equalsIgnoreCase("pair")) {
-                Log.d("AD", "OnCharacteristic write for pairing aftrer time is set");
-                // disconnect();
-            } else if (operation.equalsIgnoreCase("data")) {
-                Log.d("AD", "entering the condition of getting data");
-                if (serviceUuidString.equals(ADGattUUID.CurrentTimeService.toString())
-                        || characteristicUuidString.equals(ADGattUUID.DateTime.toString())) {
-
-                    uiThreadHandler.postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            BluetoothGatt gatt = getGatt();
-                            Log.d(TAG, "enabling the setIndication");
-                            boolean writeResult = setNotification(gatt, true);
-                            if (writeResult == false) {
-                                Log.d(TAG, "Write Error");
-                            }
-                        }
-                    }, indicationDelay);
-
-                }
-            }
-
-        }
-    };
-
-    private void broadcastUpdate(final String action) {
-        final Intent intent = new Intent(action);
-        sendBroadcast(intent);
-    }
-
-    public class LocalBinder extends Binder {
-        public BluetoothLeService getService() {
-            return BluetoothLeService.this;
-        }
-    }
-
-    @Override
-    public IBinder onBind(Intent intent) {
-        return mBinder;
-    }
-
-    @Override
-    public boolean onUnbind(Intent intent) {
-        // After using a given device, you should make sure that BluetoothGatt.close() is called
-        // such that resources are cleaned up properly.  In this particular example, close() is
-        // invoked when the UI is disconnected from the Service.
-        close();
-        return super.onUnbind(intent);
-    }
-
-
-    private final IBinder mBinder = new LocalBinder();
 
     /**
      * Connects to the GATT server hosted on the Bluetooth LE device.
@@ -241,6 +124,105 @@ public class BluetoothLeService extends Service {
         return true;
     }
 
+    // Implements callback methods for GATT events that the app cares about.  For example,
+    // connection change and services discovered.
+    private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
+        @Override
+        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+            String intentAction;
+            if (newState == BluetoothProfile.STATE_CONNECTED) {
+                mConnectionState = STATE_CONNECTED;
+                Log.i(TAG, "Connected to GATT server.");
+                // Attempts to discover services after successful connection.
+                Log.i(TAG, "Attempting to start service discovery:" +
+                        mBluetoothGatt.discoverServices());
+            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                Log.i(TAG, "Disconnected from GATT server.");
+                mConnectionState = STATE_DISCONNECTED;
+            }
+        }
+
+        @Override
+        public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+            BluetoothDevice device = gatt.getDevice();
+            Log.d(TAG, "onServicesDiscovered()" + device.getAddress() + ", " + device.getName() + ", status=" + status);
+            /* a low energy blood pressure service was found */
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                //set time and date whenever we connect to the device
+                if (operation != null) {
+                    setupDateTime(gatt);
+                }
+            }
+
+        }
+
+
+        @Override
+        public void onCharacteristicChanged(BluetoothGatt gatt,
+                                            BluetoothGattCharacteristic characteristic) {
+            Log.d(TAG, "onCharacteristicChanged()" + "characteristic=" + characteristic.getUuid().toString());
+
+            parseCharacteristicValue(gatt, characteristic);
+        }
+
+        @Override
+        public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
+            BluetoothDevice device = gatt.getDevice();
+            Log.d(TAG, "onCharacteristicWrite()" + device.getAddress() + ", " + device.getName() + " characteristic=" + characteristic.getUuid().toString());
+
+            if (operation.equalsIgnoreCase(PAIR_OPERATION)) {
+                Log.d("AD", "OnCharacteristic write for pairing aftrer time is set");
+                //disconnect after time is set when we are in pairing mode
+                disconnect();
+                broadcastUpdate(ACTION_BLE_DEVICE_PAIRED);
+            } else if (operation.equalsIgnoreCase(RECEIVE_DATA_OPERATION)) {
+                Log.d("AD", "entering the condition of getting data");
+
+                uiThreadHandler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        BluetoothGatt gatt = getGatt();
+                        Log.d(TAG, "enabling the setIndication");
+                        boolean writeResult = setNotification(gatt, true);
+                        if (writeResult == false) {
+                            Log.d(TAG, "Write Error");
+                        }
+                    }
+                }, indicationDelay);
+            }
+
+        }
+    };
+
+    private void broadcastUpdate(final String action) {
+        final Intent intent = new Intent();
+        intent.setAction(action);
+        sendBroadcast(intent);
+    }
+
+    public class LocalBinder extends Binder {
+        public BluetoothLeService getService() {
+            return BluetoothLeService.this;
+        }
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        return mBinder;
+    }
+
+    @Override
+    public boolean onUnbind(Intent intent) {
+        // After using a given device, you should make sure that BluetoothGatt.close() is called
+        // such that resources are cleaned up properly.  In this particular example, close() is
+        // invoked when the UI is disconnected from the Service.
+        close();
+        return super.onUnbind(intent);
+    }
+
+
+    private final IBinder mBinder = new LocalBinder();
+
     /**
      * Disconnects an existing connection or cancel a pending connection. The disconnection result
      * is reported asynchronously through the
@@ -253,6 +235,7 @@ public class BluetoothLeService extends Service {
             return;
         }
         mBluetoothGatt.disconnect();
+        mBluetoothGatt = null;
     }
 
     /**
@@ -267,21 +250,6 @@ public class BluetoothLeService extends Service {
         mBluetoothGatt = null;
     }
 
-    /**
-     * Request a read on a given {@code BluetoothGattCharacteristic}. The read result is reported
-     * asynchronously through the {@code BluetoothGattCallback#onCharacteristicRead(android.bluetooth.BluetoothGatt, android.bluetooth.BluetoothGattCharacteristic, int)}
-     * callback.
-     *
-     * @param characteristic The characteristic to read from.
-     */
-    public void readCharacteristic(BluetoothGattCharacteristic characteristic) {
-        if (mBluetoothAdapter == null || mBluetoothGatt == null) {
-            Log.w(TAG, "BluetoothAdapter not initialized");
-            return;
-        }
-        mBluetoothGatt.readCharacteristic(characteristic);
-    }
-
     public boolean setupDateTime(BluetoothGatt gatt) {
         boolean isSuccess = false;
         if (gatt != null) {
@@ -290,6 +258,10 @@ public class BluetoothLeService extends Service {
         return isSuccess;
     }
 
+    /**
+     * Created by sbhattacharya on 3/29/18.
+     * https://github.com/andengineering/AndroidSampleCode/blob/master/app/src/main/java/jp/co/aandd/cdltestapp/ble/BleReceivedService.java
+     */
     protected boolean setDateTimeSetting(BluetoothGatt gatt, Calendar cal) {
         boolean isSuccess = false;
         BluetoothGattService gattService = gatt.getService(BloodPressureService);
@@ -337,6 +309,10 @@ public class BluetoothLeService extends Service {
         return isSuccess;
     }
 
+    /**
+     * Created by sbhattacharya on 3/29/18.
+     * https://github.com/andengineering/AndroidSampleCode/blob/master/app/src/main/java/jp/co/aandd/cdltestapp/ble/BleReceivedService.java
+     */
     public static BluetoothGattCharacteristic datewriteCharacteristic(BluetoothGattCharacteristic characteristic, Calendar calendar) {
 
         int year = calendar.get(Calendar.YEAR);
@@ -360,6 +336,10 @@ public class BluetoothLeService extends Service {
         return characteristic;
     }
 
+    /**
+     * Created by sbhattacharya on 3/29/18.
+     * https://github.com/andengineering/AndroidSampleCode/blob/master/app/src/main/java/jp/co/aandd/cdltestapp/ble/BleReceivedService.java
+     */
     public void parseCharacteristicValue(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
         if (ADGattUUID.BloodPressureMeasurement.equals(characteristic.getUuid())) {
             Log.d("AD", "reading for BP is received");
@@ -475,5 +455,9 @@ public class BluetoothLeService extends Service {
             intent.putExtra("Timestamp", timeStamp);
             sendBroadcast(intent);
         }
+    }
+
+    public void setOperation(String operation) {
+        this.operation = operation;
     }
 }

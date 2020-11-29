@@ -1,0 +1,40 @@
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory app:title="Profile">
+
+        <Preference
+            app:key="profile"
+            app:title="Profile"
+            android:icon="@mipmap/profile_icon_foreground"
+            app:useSimpleSummaryProvider="true"
+            android:summary="Andreas"/>
+
+        <Preference
+            app:key="create_profile"
+            app:title="Create new Profile"
+            app:useSimpleSummaryProvider="true"
+            android:icon="@mipmap/create_profile_icon_foreground" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="Manage Bluetooth Device">
+
+        <Preference
+            app:key="connected_device"
+            app:title="Connected device"
+            app:icon="@drawable/ic__bluetooth"
+            app:useSimpleSummaryProvider="true" />
+
+        <Preference
+            app:key="add_device"
+            app:icon="@android:drawable/ic_input_add"
+            app:title="Add new device"
+            app:useSimpleSummaryProvider="true"
+            android:summary="Pair your phone with a blood pressure device "/>
+
+
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

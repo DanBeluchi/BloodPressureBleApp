@@ -1,43 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     tools:context=".MainActivity">
 
 
     <TextView
         android:id="@+id/tv_user_name"
         android:layout_width="match_parent"
-        android:layout_height="43dp"
-        android:layout_alignParentTop="true"
+        android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
-        android:text="Hallo Daniel"
+        android:layout_weight="0"
+        android:paddingBottom="10dp"
+        android:text="Please "
         android:textAlignment="center"
         android:textSize="24sp" />
-
-    <Button
-        android:id="@+id/btn_connect"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignParentStart="true"
-        android:layout_alignParentEnd="true"
-        android:layout_alignParentBottom="true"
-        android:layout_marginStart="2dp"
-        android:layout_marginEnd="-2dp"
-        android:layout_marginBottom="5dp"
-        android:text="Connect" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_list"
         android:layout_width="match_parent"
-        android:layout_height="544dp"
-        android:layout_above="@+id/btn_connect"
-        android:layout_below="@+id/tv_user_name"
-        android:layout_marginStart="0dp"
-        android:layout_marginTop="5dp"
-        android:layout_marginEnd="0dp"
-        android:layout_marginBottom="5dp" />
+        android:layout_height="0dp"
+        android:layout_weight="1">
 
-</RelativeLayout>
+    </androidx.recyclerview.widget.RecyclerView>
+
+
+    <ImageView
+        android:id="@+id/bluetooth_receiving"
+        android:layout_width="match_parent"
+        android:layout_height="26dp"
+        android:layout_weight="0"
+        android:contentDescription="TODO"
+        android:visibility="invisible"
+        app:srcCompat="@mipmap/bluetooth_receiving_icon_foreground" />
+
+    <Button
+        android:id="@+id/btn_receive_data"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:freezesText="true"
+        android:text="@string/receive_data" />
+
+</LinearLayout>

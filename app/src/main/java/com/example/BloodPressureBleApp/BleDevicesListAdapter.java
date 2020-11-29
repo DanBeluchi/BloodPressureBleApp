@@ -1,5 +1,6 @@
 package com.example.BloodPressureBleApp;
 
+import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -17,21 +18,31 @@ import com.example.BloodPressureBleApp.Database.Database;
 
 import java.util.List;
 
-public class ListAdapter extends RecyclerView.Adapter<ListAdapter.ItemViewHolder> {
+public class BleDevicesListAdapter extends RecyclerView.Adapter<BleDevicesListAdapter.ItemViewHolder> {
 
-    private List<BloodPressureMeasurement> mItems;
+    private List<BluetoothDevice> mItems;
     private Context mContext;
+    private BleListItemClickListener mListItemClickListener;
 
-    public ListAdapter(List<BloodPressureMeasurement> mItems) {
+    public interface BleListItemClickListener {
+        void onListItemClick(BluetoothDevice item);
+    }
+
+    public void setOnListItemClickListener(BleListItemClickListener listItemClickListener) {
+        mListItemClickListener = listItemClickListener;
+    }
+
+    public BleDevicesListAdapter(List<BluetoothDevice> mItems) {
         this.mItems = mItems;
     }
+
 
     @NonNull
     @Override
     public ItemViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         Context context = parent.getContext();
         mContext = context;
-        int layoutIdForListItem = R.layout.list_item;
+        int layoutIdForListItem = R.layout.ble_list_item;
         LayoutInflater inflater = LayoutInflater.from(context);
 
 
@@ -54,36 +65,31 @@ public class ListAdapter extends RecyclerView.Adapter<ListAdapter.ItemViewHolder
 
     class ItemViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
 
-        private TextView tvSystolic;
-        private TextView tvDiastolic;
-        private TextView tvPulse;
-        private TextView tvDateTime;
+        private TextView tvDeviceName;
+        private TextView tvDeviceAddress;
+        private LinearLayout llItem;
+
 
         public ItemViewHolder(@NonNull View itemView) {
             super(itemView);
-            tvSystolic = itemView.findViewById(R.id.tv_systolic_value);
-            tvDiastolic = itemView.findViewById(R.id.tv_diastolic_value);
-            tvPulse = itemView.findViewById(R.id.tv_pulse_value);
-            tvDateTime = itemView.findViewById(R.id.tv_date_time);
+            tvDeviceName = itemView.findViewById(R.id.tv_device_name);
+            tvDeviceAddress = itemView.findViewById(R.id.tv_device_address);
+            llItem = itemView.findViewById(R.id.ble_list__item);
             itemView.setOnClickListener(this);
         }
 
         void bind(int index) {
-            tvSystolic.setText(mItems.get(index).getmSystolic());
-            tvDiastolic.setText(String.valueOf(mItems.get(index).getmDiastolic()));
-            tvPulse.setText(String.valueOf(mItems.get(index).getmPulse()));
-            tvDateTime.setText(String.valueOf(mItems.get(index).getmTimeStamp()));
+            tvDeviceName.setText(mItems.get(index).getName());
+            tvDeviceAddress.setText(String.valueOf(mItems.get(index).getAddress()));
         }
 
         @Override
         public void onClick(View view) {
-            Toast.makeText(mContext, String.valueOf(mItems.get(getAdapterPosition())), Toast.LENGTH_LONG).show();
-            int deletedRows = Database.mMeasurementsResultsDao.deleteMeasurementById(mItems.get(getAdapterPosition()).getmMeasurementId());
-            if (deletedRows > 0) {
-                mItems.remove(getAdapterPosition());
-                notifyDataSetChanged();
+            if (mListItemClickListener != null) {
+                int clickedIndex = getAdapterPosition();
+                BluetoothDevice clickedItem = mItems.get(clickedIndex);
+                mListItemClickListener.onListItemClick(clickedItem);
             }
-            Toast.makeText(mContext, deletedRows + "Item deleted = ", Toast.LENGTH_SHORT).show();
         }
     }
 }

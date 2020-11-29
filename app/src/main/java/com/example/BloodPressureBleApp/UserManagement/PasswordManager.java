@@ -1,3 +1,8 @@
+/**
+ * Original source: https://github.com/rustemazimov/Hasher/blob/master/app/src/main/java/com/example/rustem/hasher/Function.java
+ *
+ * @author Rustem Azimov
+ */
 package com.example.BloodPressureBleApp.UserManagement;
 
 import java.security.NoSuchAlgorithmException;
@@ -32,7 +37,7 @@ public class PasswordManager {
      *
      *@return true if the has value of the entered password equals the hashed password from the database.
      */
-    public Boolean isPasswordValid(String enteredPassword, String userPasswordFromDB){
+    public Boolean isPasswordValid(String enteredPassword, String userPasswordFromDB) {
 
         //split the string to get the salt that was used when the password was saved (iterations:salt:hash)
         String[] splittedPW = userPasswordFromDB.split(":");
@@ -149,7 +154,7 @@ public class PasswordManager {
         byte[] data = new byte[len / 2];
         for (int i = 0; i < len; i += 2) {
             data[i / 2] = (byte) ((Character.digit(hexString.charAt(i), 16) << 4)
-                    + Character.digit(hexString.charAt(i+1), 16));
+                    + Character.digit(hexString.charAt(i + 1), 16));
         }
         return data;
     }

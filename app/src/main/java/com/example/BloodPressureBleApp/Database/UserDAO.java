@@ -36,7 +36,7 @@ public class UserDAO {
             } while (cursor.moveToNext());
 
         } else {
-            user.setmId(-1);
+            return null;
         }
         //close cursor and db when finished
         cursor.close();
@@ -64,7 +64,7 @@ public class UserDAO {
             } while (cursor.moveToNext());
 
         } else {
-            user.setmId(-1);
+            return null;
         }
         //close cursor and db when finished
         cursor.close();
@@ -105,7 +105,7 @@ public class UserDAO {
     }
 
 
-    public long addUser(User user) throws SQLiteConstraintException{
+    public long addUser(User user) throws SQLiteConstraintException {
         SQLiteDatabase db = mDatabase.getWritableDatabase();
         ContentValues cv = new ContentValues();
         long insert;
@@ -113,7 +113,7 @@ public class UserDAO {
         cv.put(UserContractClass.UserEntry.COLUMN_USER_NAME, user.getmName());
         cv.put(UserContractClass.UserEntry.COLUMN_USER_PASSWORD, user.getmPassword());
         cv.put(UserContractClass.UserEntry.COLUMN_USER_AGE, user.getmAge());
-        try{
+        try {
             insert = db.insertOrThrow(UserContractClass.UserEntry.TABLE_NAME, null, cv);
         } catch (SQLiteConstraintException ex) {
             throw new SQLiteConstraintException();

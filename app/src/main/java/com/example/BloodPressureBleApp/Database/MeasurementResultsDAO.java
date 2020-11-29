@@ -67,6 +67,7 @@ public class MeasurementResultsDAO {
             return null;
         } else {
             data = new BloodPressureMeasurement(insert, systolic, diastolic, pulse, timeStamp, userID);
+            db.close();
             return data;
         }
     }
