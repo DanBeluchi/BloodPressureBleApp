@@ -15,6 +15,10 @@
     <string name="scan_for_device">Scan for device</string>
     <string name="text_stop_scan">Stop</string>
     <string name="no_profile_message">Please sign in or create a profile under Settings</string>
+    <string name="share_msg">My blood pressure measurement from</string>
+    <string name="systolic_share"><b>Systolic: </b></string>
+    <string name="diastolic_share"><b>Diastolic: </b></string>
+    <string name="pulse_share"><b>Pulse: </b></string>
 
     <!-- Preference Titles -->
 

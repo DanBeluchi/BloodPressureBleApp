@@ -24,8 +24,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.example.BloodPressureBleApp.MainActivity.ACTIVE_USER_KEY;
+import static com.example.BloodPressureBleApp.MainActivity.CONNECTED_DEVICE;
 import static com.example.BloodPressureBleApp.MainActivity.DEVICE_PAIRED_KEY;
 import static com.example.BloodPressureBleApp.MainActivity.MEASUREMENT_LIST_KEY;
+import static com.example.BloodPressureBleApp.MainActivity.PAIRED_DEVICE_ADDRESS;
 import static com.example.BloodPressureBleApp.MainActivity.USER_SWITCH_SUCCESS;
 
 public class SettingsActivity extends AppCompatActivity {
@@ -119,12 +121,15 @@ public class SettingsActivity extends AppCompatActivity {
 
             /* get the newest values and set the summary */
             profileName.setSummary(prefs.getString(PROFILE, ""));
-            connectedDevice.setSummary(prefs.getString("connected_device", ""));
+            connectedDevice.setSummary(prefs.getString(CONNECTED_DEVICE, ""));
 
 
         }
     }
 
+    /**
+     * Handle returned results from other activities based on the returned result code
+     */
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -170,13 +175,16 @@ public class SettingsActivity extends AppCompatActivity {
                 if (data.hasExtra(DEVICE_KEY)) {
 
                     mBluetoothDevice = data.getParcelableExtra(DEVICE_KEY);
+                    String pairedDeviceAddress = data.getStringExtra(PAIRED_DEVICE_ADDRESS);
                     Toast.makeText(getApplicationContext(), "Pairing successful", Toast.LENGTH_SHORT).show();
-                    editor.putString("connected_device", mBluetoothDevice.getName() + System.lineSeparator() + mBluetoothDevice.getAddress());
+                    editor.putString(CONNECTED_DEVICE, mBluetoothDevice.getName() + System.lineSeparator() + mBluetoothDevice.getAddress());
+                    editor.putString(PAIRED_DEVICE_ADDRESS, mBluetoothDevice.getAddress());
                     editor.apply();
 
                     /* set successful pairing result for MainActivity */
                     Intent returnIntent = new Intent(getApplicationContext(), MainActivity.class);
                     returnIntent.putExtra(DEVICE_PAIRED_KEY, true);
+                    returnIntent.putExtra(PAIRED_DEVICE_ADDRESS, pairedDeviceAddress);
                     setResult(DEVICE_PAIRED, returnIntent);
                     finish();
                 }

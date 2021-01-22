@@ -1,7 +1,6 @@
 package com.example.BloodPressureBleApp.Ble;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -19,7 +18,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -31,7 +29,6 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.example.BloodPressureBleApp.BleDevicesListAdapter;
 import com.example.BloodPressureBleApp.MainActivity;
@@ -40,9 +37,11 @@ import com.example.BloodPressureBleApp.SettingsActivity;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import static com.example.BloodPressureBleApp.Ble.ADGattUUID.BloodPressureService;
 import static com.example.BloodPressureBleApp.Ble.BluetoothLeService.PAIR_OPERATION;
+import static com.example.BloodPressureBleApp.MainActivity.PAIRED_DEVICE_ADDRESS;
 import static com.example.BloodPressureBleApp.SettingsActivity.DEVICE_PAIRED;
 import static com.example.BloodPressureBleApp.SettingsActivity.DEVICE_KEY;
 
@@ -56,8 +55,6 @@ public class PairDeviceActivity extends AppCompatActivity {
 
     TextView tvDeviceName;
     TextView tvDeviceAddress;
-
-    SharedPreferences prefs;
 
     private BluetoothLeScanner mBluetoothLeScanner;
     private BluetoothLeService mBluetoothLeService;
@@ -76,13 +73,12 @@ public class PairDeviceActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_pair_device);
 
-        prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        final String pairedDeviceId = prefs.getString("connected_device", "");
         tvDeviceName = findViewById(R.id.tv_device_name);
         tvDeviceAddress = findViewById(R.id.tv_device_address);
         mScanButton = findViewById(R.id.btn_start_scan);
         mProgressIndicator = findViewById(R.id.progressBar);
         mScanButton.setVisibility(View.GONE);
+        mRecyclerView = findViewById(R.id.rv_ble_list);
 
         /* Initializes Bluetooth adapter */
         Log.d("Bluetooth Scan", "Init Bluetooth");
@@ -90,6 +86,16 @@ public class PairDeviceActivity extends AppCompatActivity {
         BluetoothManager mBluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         BluetoothAdapter mBluetoothAdapter = mBluetoothManager.getAdapter();
         mBluetoothLeScanner = BluetoothAdapter.getDefaultAdapter().getBluetoothLeScanner();
+
+        if (mAdapter == null) {
+            mAdapter = new BleDevicesListAdapter(mBleDeviceList);
+        }
+
+        LinearLayoutManager layoutManager = new LinearLayoutManager(this);
+        mRecyclerView.setLayoutManager(layoutManager);
+        mRecyclerView.setHasFixedSize(true);
+        mRecyclerView.setAdapter(mAdapter);
+
 
         /* Ensures Bluetooth is available on the device and it is enabled. If not,
            displays a dialog requesting user permission to enable Bluetooth.*/
@@ -105,7 +111,7 @@ public class PairDeviceActivity extends AppCompatActivity {
 
         doBindBleService();
 
-        /*Register BroadcastReceiver for BluetoothLEService */
+        /*Register BroadcastReceiver for BluetoothLeService */
         IntentFilter filter = new IntentFilter(BluetoothLeService.ACTION_BLE_SERVICE);
         filter.addAction(BluetoothLeService.ACTION_BLE_DEVICE_PAIRED);
         registerReceiver(gattUpdateReceiver, filter);
@@ -133,37 +139,6 @@ public class PairDeviceActivity extends AppCompatActivity {
                 }
             });
         }
-
-        mRecyclerView = findViewById(R.id.rv_ble_list);
-
-        LinearLayoutManager layoutManager = new LinearLayoutManager(this);
-        mRecyclerView.setLayoutManager(layoutManager);
-        mRecyclerView.setHasFixedSize(true);
-
-        if (mAdapter == null) {
-            mAdapter = new BleDevicesListAdapter(mBleDeviceList);
-        }
-
-        /* connect to the selected recycler view item to start pairing*/
-        mAdapter.setOnListItemClickListener(new BleDevicesListAdapter.BleListItemClickListener() {
-            @Override
-            public void onListItemClick(BluetoothDevice item) {
-                Log.d(PairDeviceActivity.class.getCanonicalName(), "Stopped Scanning");
-                mScanning = false;
-                mBluetoothLeScanner.stopScan(leScanCallback);
-                mProgressIndicator.setVisibility(View.GONE);
-                mScanButton.setText(getResources().getString(R.string.scan_for_device));
-                mBluetoothDevice = item;
-                String selectedDeviceId = mBluetoothDevice.getName() + System.lineSeparator() + mBluetoothDevice.getAddress();
-
-                if (selectedDeviceId.equals(pairedDeviceId)) {
-                    Toast.makeText(getApplicationContext(), "Device already paired", Toast.LENGTH_SHORT).show();
-                } else {
-                    mBluetoothLeService.connect(item.getAddress());
-                }
-            }
-        });
-        mRecyclerView.setAdapter(mAdapter);
     }
 
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
@@ -192,8 +167,8 @@ public class PairDeviceActivity extends AppCompatActivity {
 
         @Override
         public void run() {
+            Handler handler = new Handler(getMainLooper());
             if (!mScanning) {
-                Handler handler = new Handler(getMainLooper());
                 // Stops scanning after a pre-defined scan period.
                 handler.postDelayed(new Runnable() {
                     @Override
@@ -220,14 +195,25 @@ public class PairDeviceActivity extends AppCompatActivity {
                         .setScanMode(ScanSettings.SCAN_MODE_BALANCED).build();
                 mBluetoothLeScanner.startScan(scanFilterList, scanSettings, leScanCallback);
 
-                Log.d(MainActivity.class.getCanonicalName(), "Started Scanning");
-                mScanButton.setText("Stop");
+                Log.d(PairDeviceActivity.class.getCanonicalName(), "Started Scanning");
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        mAdapter.clear();
+                        mScanButton.setText("Stop");
+                    }
+                });
             } else {
-                mScanning = false;
-                mProgressIndicator.setVisibility(View.GONE);
-                mScanButton.setText(getResources().getString(R.string.scan_for_device));
-                Log.d(PairDeviceActivity.class.getCanonicalName(), "Stopped Scanning");
-                mBluetoothLeScanner.stopScan(leScanCallback);
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        mScanning = false;
+                        mProgressIndicator.setVisibility(View.GONE);
+                        mScanButton.setText(getResources().getString(R.string.scan_for_device));
+                        Log.d(PairDeviceActivity.class.getCanonicalName(), "Stopped Scanning");
+                        mBluetoothLeScanner.stopScan(leScanCallback);
+                    }
+                });
             }
         }
     }
@@ -251,6 +237,19 @@ public class PairDeviceActivity extends AppCompatActivity {
                                 } else {
                                     mBleDeviceList.add(result.getDevice());
                                     mAdapter.notifyDataSetChanged();
+                                    /* set onClickListener to start pairing with the device that was clicked only if a device was found*/
+                                    mAdapter.setOnListItemClickListener(new BleDevicesListAdapter.BleListItemClickListener() {
+                                        @Override
+                                        public void onListItemClick(BluetoothDevice item) {
+                                            Log.d(PairDeviceActivity.class.getCanonicalName(), "Stopped Scanning");
+                                            mScanning = false;
+                                            mBluetoothLeScanner.stopScan(leScanCallback);
+                                            mProgressIndicator.setVisibility(View.GONE);
+                                            mScanButton.setText(getResources().getString(R.string.scan_for_device));
+                                            mBluetoothDevice = item;
+                                            mBluetoothLeService.connect(item.getAddress());
+                                        }
+                                    });
                                 }
                             }
                         }
@@ -258,25 +257,30 @@ public class PairDeviceActivity extends AppCompatActivity {
                 }
             };
 
-
+    /**
+     * Handles various events fired by the BluetoothLeService.
+     */
     private final BroadcastReceiver gattUpdateReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             final String action = intent.getAction();
 
             if (BluetoothLeService.ACTION_BLE_DEVICE_PAIRED.equals(action)) {
-                Log.d("AD", "Dei ");
+                Log.d("AD", "Device paired ");
                 doUnbindBleRService();
                 mBluetoothLeService = null;
                 Intent returnIntent = new Intent(getApplicationContext(), SettingsActivity.class);
                 returnIntent.putExtra(DEVICE_KEY, (Parcelable) mBluetoothDevice);
+                returnIntent.putExtra(PAIRED_DEVICE_ADDRESS, mBluetoothDevice.getAddress());
                 PairDeviceActivity.this.setResult(DEVICE_PAIRED, returnIntent);
                 finish();
             }
         }
     };
 
-
+    /**
+     * bind to the BluetoothLeService
+     */
     public void doBindBleService() {
         if (!mIsBindBleService) {
             Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
@@ -286,6 +290,9 @@ public class PairDeviceActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * unbind from BluetoothLeService
+     */
     public void doUnbindBleRService() {
         if (mIsBindBleService) {
             unbindService(mServiceConnection);
@@ -305,7 +312,15 @@ public class PairDeviceActivity extends AppCompatActivity {
         super.onBackPressed();
     }
 
-    /* BroadcastReceiver for bond state change while pairing*/
+    @Override
+    protected void onResume() {
+        doBindBleService();
+        super.onResume();
+    }
+
+    /**
+     * BroadcastReceiver for bond state change while pairing
+     */
     private final BroadcastReceiver pairingBroadCastReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -321,7 +336,7 @@ public class PairDeviceActivity extends AppCompatActivity {
                 } else if (state == BluetoothDevice.BOND_BONDED) {
                     /* pairing is done*/
                     Log.d(TAG, "Bonded!!");
-                    if (mBluetoothDevice != null) {
+                    if (mBluetoothDevice != null && mBluetoothLeService != null) {
                         mBluetoothLeService.setOperation(PAIR_OPERATION);
                         mBluetoothLeService.connect(mBluetoothDevice.getAddress());
                     }

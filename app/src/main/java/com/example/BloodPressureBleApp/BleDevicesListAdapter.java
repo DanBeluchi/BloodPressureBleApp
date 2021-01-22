@@ -3,6 +3,7 @@ package com.example.BloodPressureBleApp;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.util.Log;
+import android.view.ContextMenu;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -91,5 +92,12 @@ public class BleDevicesListAdapter extends RecyclerView.Adapter<BleDevicesListAd
                 mListItemClickListener.onListItemClick(clickedItem);
             }
         }
+    }
+
+    public void clear() {
+        int size = mItems.size();
+        mItems.clear();
+        notifyItemRangeRemoved(0, size);
+        Log.d("BINDLOG", "Clearing recyclerview");
     }
 }

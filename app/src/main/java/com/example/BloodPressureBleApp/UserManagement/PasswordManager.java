@@ -1,8 +1,4 @@
-/**
- * Original source: https://github.com/rustemazimov/Hasher/blob/master/app/src/main/java/com/example/rustem/hasher/Function.java
- *
- * @author Rustem Azimov
- */
+
 package com.example.BloodPressureBleApp.UserManagement;
 
 import java.security.NoSuchAlgorithmException;
@@ -12,6 +8,11 @@ import java.security.spec.InvalidKeySpecException;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 
+/**
+ * Original source: https://github.com/rustemazimov/Hasher/blob/master/app/src/main/java/com/example/rustem/hasher/Function.java
+ *
+ * @author Rustem Azimov
+ */
 public class PasswordManager {
 
     private final int HASH_BYTES = 24;
@@ -21,8 +22,7 @@ public class PasswordManager {
      * Takes the entered password and hashes it. Returns a string in the format (iterations:salt:hash)
      *
      * @param password the password.
-     *
-     *@return formatted string (iterations:salt:hash)
+     * @return formatted string (iterations:salt:hash)
      */
     public String hashPassword(String password) {
         return convertToPBKDF2(password.toCharArray());
@@ -32,10 +32,9 @@ public class PasswordManager {
      * Takes the entered password and hashes it. After that the generated hash value is compared
      * the hashed password from the database.
      *
-     * @param enteredPassword the password that was entered in plain text.
+     * @param enteredPassword    the password that was entered in plain text.
      * @param userPasswordFromDB hashed password from the database.
-     *
-     *@return true if the has value of the entered password equals the hashed password from the database.
+     * @return true if the has value of the entered password equals the hashed password from the database.
      */
     public Boolean isPasswordValid(String enteredPassword, String userPasswordFromDB) {
 
@@ -48,8 +47,6 @@ public class PasswordManager {
         String enteredPasswordHashed = convertToPBKDF2(enteredPassword.toCharArray(), salt);
 
         return userPasswordFromDB.equals(enteredPasswordHashed);
-
-
     }
 
     /**
@@ -57,9 +54,8 @@ public class PasswordManager {
      * After the password is hashed a string(format: (iterations:salt:hash)) is returned.
      *
      * @param password the password hash.
-     * @param salt a given salt.
-     *
-     *@return formatted string (iterations:salt:hash)
+     * @param salt     a given salt.
+     * @return formatted string (iterations:salt:hash)
      */
     private String convertToPBKDF2(char[] password, byte[] salt) {
         try {
@@ -78,8 +74,7 @@ public class PasswordManager {
      * After the password is hashed a string(format: (iterations:salt:hash)) is returned.
      *
      * @param password the password to hash.
-     *
-     *@return formatted string (iterations:salt:hash)
+     * @return formatted string (iterations:salt:hash)
      */
     private String convertToPBKDF2(char[] password) {
         try {
@@ -105,19 +100,17 @@ public class PasswordManager {
      * to-be-derived key length for generating PBEKey of variable-key-size
      * PBE ciphers.
      *
-     * @param password the password.
-     * @param salt the salt.
+     * @param password   the password.
+     * @param salt       the salt.
      * @param iterations the iteration count.
-     * @param keyLength the to-be-derived key length.
-     *
-     *@return the encoded key, or null if the key does not support
+     * @param keyLength  the to-be-derived key length.
+     * @return the encoded key, or null if the key does not support
      * encoding.
-     *
-     * @exception NoSuchAlgorithmException if no Provider supports a
-     * SecretKeyFactorySpi implementation for the
-     * specified algorithm.
-     * @exception InvalidKeySpecException if the given key specification
-     *  is inappropriate for this secret-key factory to produce a secret key.
+     * @throws NoSuchAlgorithmException if no Provider supports a
+     *                                  SecretKeyFactorySpi implementation for the
+     *                                  specified algorithm.
+     * @throws InvalidKeySpecException  if the given key specification
+     *                                  is inappropriate for this secret-key factory to produce a secret key.
      */
     private byte[] pbkdf2(char[] password, byte[] salt, int iterations, int keyLength)
             throws NoSuchAlgorithmException, InvalidKeySpecException {
@@ -131,8 +124,7 @@ public class PasswordManager {
      * Converts a byte array to hex
      *
      * @param data byte array.
-     *
-     *@return string with the hex value of the byte array
+     * @return string with the hex value of the byte array
      */
     private String convertByteToHex(byte[] data) {
         StringBuilder hexData = new StringBuilder();
@@ -146,8 +138,7 @@ public class PasswordManager {
      * Converts a hex value to byte array
      *
      * @param hexString value as string
-     *
-     *@return converted hex value as a byte array
+     * @return converted hex value as a byte array
      */
     private static byte[] hexStringToByteArray(String hexString) {
         int len = hexString.length();

@@ -40,17 +40,16 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.BloodPressureBleApp.Ble.ADGattUUID;
-import com.example.BloodPressureBleApp.Ble.PairDeviceActivity;
 import com.example.BloodPressureBleApp.Data.BloodPressureMeasurement;
 import com.example.BloodPressureBleApp.Data.User;
 import com.example.BloodPressureBleApp.Database.Database;
 import com.example.BloodPressureBleApp.UserManagement.LoginUserActivity;
 import com.example.BloodPressureBleApp.Ble.BluetoothLeService;
-//import com.example.BloodPressureBleApp.Ble.BluetoothLeService;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static com.example.BloodPressureBleApp.Ble.BluetoothLeService.RECEIVE_DATA_OPERATION;
@@ -67,16 +66,15 @@ public class MainActivity extends AppCompatActivity {
     public static final String SCANNING_STATUS_KEY = "scanningStatus";
     public static final String PAIRING_STATUS_KEY = "pairingStatus";
     public static final String DEVICE_PAIRED_KEY = "pairedDevice";
+    public static final String CONNECTED_DEVICE = "connectedDevice";
+    public static final String PAIRED_DEVICE_ADDRESS = "pairedDeviceAddress";
     public static final UUID BloodPressureService = ADGattUUID.uuidFromShortString("1810");
-    public static final String SHARED_PREFS = "sharedPrefs";
 
     private static final int REQUEST_ENABLE_BT = 1;
     public static final int USER_SWITCH_SUCCESS = 5;
     public static final int USER_NOT_REGISTERED = 6;
 
     private static final int STATE_DISCONNECTED = 0;
-    private static final int STATE_CONNECTING = 1;
-    private static final int STATE_CONNECTED = 2;
 
     SharedPreferences prefs;
     SharedPreferences.Editor prefEditor;
@@ -87,7 +85,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean isScanning = false;
     private boolean isPaired = false;
     private boolean mIsBindBleService = false;
-    private String mConnectedDevice;
+    private String mPairedDeviceAddress;
 
     //UI
     TextView tvUsername;
@@ -99,10 +97,7 @@ public class MainActivity extends AppCompatActivity {
     public static Database mDb;
     String standardUserName;
     User activeUser;
-    List<BloodPressureMeasurement> measurementsHistory;
-
-    private int connectionState = STATE_DISCONNECTED;
-
+    List<BloodPressureMeasurement> measurementsHistory = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -113,21 +108,63 @@ public class MainActivity extends AppCompatActivity {
         prefs = PreferenceManager.getDefaultSharedPreferences(this);
         prefEditor = prefs.edit();
 
-        mConnectedDevice = prefs.getString("connected_device", "");
-
+        mPairedDeviceAddress = prefs.getString(PAIRED_DEVICE_ADDRESS, "");
+        standardUserName = prefs.getString(PROFILE, "");
         /*Init UI */
         tvUsername = findViewById(R.id.tv_user_name);
-
         mRcvDataBtn = findViewById(R.id.btn_receive_data);
         mRecyclerView = findViewById(R.id.rv_list);
         mRecyclerView.setHasFixedSize(true);
         mRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+
         bluetoothIcon = findViewById(R.id.bluetooth_receiving);
 
-        if (mAdapter == null) {
-            mAdapter = new ListAdapter(measurementsHistory);
+        /* Initializes Bluetooth adapter */
+        Log.d(TAG, "Init Bluetooth");
+        /*Bluetooth */
+        BluetoothManager mBluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        BluetoothAdapter mBluetoothAdapter = mBluetoothManager.getAdapter();
+        mBluetoothLeScanner = BluetoothAdapter.getDefaultAdapter().getBluetoothLeScanner();
+
+        /* Ensures Bluetooth is available on the device and it is enabled. If not,
+           displays a dialog requesting user permission to enable Bluetooth.*/
+        if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
+            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
         }
 
+
+        /* Always check if a device is paired*/
+        try {
+            Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
+            /* Paired device found*/
+            if (pairedDevices.size() > 0) {
+                for (BluetoothDevice device : pairedDevices) {
+                    String deviceHardwareAddress = device.getAddress(); // MAC address
+                    /* check if paired device is the same as the prev paired one*/
+                    if (deviceHardwareAddress.equals(mPairedDeviceAddress)) {
+                        isPaired = true;
+                    }
+                }
+                /* paired device but not our previously saved device */
+                if (!isPaired) {
+                    mPairedDeviceAddress = "";
+                    prefEditor.putString(CONNECTED_DEVICE, "");
+                    prefEditor.putString(PAIRED_DEVICE_ADDRESS, "");
+                    prefEditor.apply();
+                    isPaired = false;
+                }
+                /* no paired device */
+            } else {
+                mPairedDeviceAddress = "";
+                prefEditor.putString(CONNECTED_DEVICE, "");
+                prefEditor.putString(PAIRED_DEVICE_ADDRESS, "");
+                prefEditor.apply();
+                isPaired = false;
+            }
+        } catch (NullPointerException e) {
+            e.printStackTrace();
+        }
 
         mDb = new Database(this);
         try {
@@ -142,26 +179,18 @@ public class MainActivity extends AppCompatActivity {
         /*Checking for saved state*/
         if (savedInstanceState == null) {
             /* no saved State */
-            mConnectedDevice = prefs.getString("connected_device", "");
-
+            new Thread(new getUserDataFromDB()).start();
             /* check if a device was paired */
             /* no device paired*/
-            if (mConnectedDevice.isEmpty()) {
+            if (mPairedDeviceAddress.isEmpty()) {
                 Toast.makeText(getApplicationContext(), "No Device connected", Toast.LENGTH_SHORT).show();
                 Toast.makeText(getApplicationContext(), "Please pair a device under Settings-> Add new device", Toast.LENGTH_SHORT).show();
                 mRcvDataBtn.setVisibility(View.GONE);
             } else {
-                mRcvDataBtn.setVisibility(View.VISIBLE);
                 isPaired = true;
             }
-
-            standardUserName = prefs.getString(PROFILE, "");
-
-            new Thread(new getUserDataFromDB()).start();
-
         } else {
             /* saved State */
-
             /* check for parcelled file descriptors  */
             if (savedInstanceState.containsKey(ACTIVE_USER_KEY)) {
                 /* assign information's from saved state*/
@@ -170,13 +199,13 @@ public class MainActivity extends AppCompatActivity {
 
                 tvUsername.setText("Hallo " + activeUser.getmName());
 
-                if (mAdapter != null) {
-                    mAdapter = new ListAdapter(measurementsHistory);
-                }
+                mAdapter = new ListAdapter(measurementsHistory);
+                mRecyclerView.setAdapter(mAdapter);
+
             } else {
                 tvUsername.setText(R.string.no_profile_message);
             }
-            /* check for other saved informations */
+            /* check for other saved information's */
             if (savedInstanceState.containsKey(PAIRING_STATUS_KEY) && savedInstanceState.containsKey(SCANNING_STATUS_KEY)) {
 
                 isScanning = savedInstanceState.getBoolean(SCANNING_STATUS_KEY);
@@ -216,26 +245,9 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        /* Initializes Bluetooth adapter */
-        Log.d(TAG, "Init Bluetooth");
-        /*Bluetooth */
-        BluetoothManager mBluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
-        BluetoothAdapter mBluetoothAdapter = mBluetoothManager.getAdapter();
-        mBluetoothLeScanner = BluetoothAdapter.getDefaultAdapter().getBluetoothLeScanner();
-
-        /* Ensures Bluetooth is available on the device and it is enabled. If not,
-           displays a dialog requesting user permission to enable Bluetooth.*/
-        if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
-            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-        }
-
-
         /*Register BroadcastReceiver for BluetoothLEService */
         IntentFilter filter = new IntentFilter(BluetoothLeService.ACTION_BLE_DATA_RECEIVED);
         registerReceiver(gattUpdateReceiver, filter);
-
-        mRecyclerView.setAdapter(mAdapter);
     }
 
     /**
@@ -248,10 +260,11 @@ public class MainActivity extends AppCompatActivity {
             Log.d(TAG, "Fetching Data from DB");
             activeUser = Database.mUserDao.fetchUserByName(standardUserName);
 
+            Handler handler = new Handler(Looper.getMainLooper());
+
             if (activeUser != null) {
                 measurementsHistory = Database.mMeasurementsResultsDao.fetchAllMeasurementsFromUserByID(activeUser.getmId());
 
-                Handler handler = new Handler(Looper.getMainLooper());
                 handler.post(new Runnable() {
                     @Override
                     public void run() {
@@ -260,10 +273,19 @@ public class MainActivity extends AppCompatActivity {
 
                         mAdapter = new ListAdapter(measurementsHistory);
                         mRecyclerView.setAdapter(mAdapter);
+                        if (isPaired) {
+                            mRcvDataBtn.setVisibility(View.VISIBLE);
+                        }
                     }
                 });
             } else {
-                tvUsername.setText(R.string.no_profile_message);
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        tvUsername.setText(R.string.no_profile_message);
+                        mRcvDataBtn.setVisibility(View.GONE);
+                    }
+                });
             }
         }
     }
@@ -353,9 +375,8 @@ public class MainActivity extends AppCompatActivity {
                     handler.post(new Runnable() {
                         @Override
                         public void run() {
-                            if (mBluetoothDevice != null) {
+                            if (mBluetoothDevice != null && mBluetoothDevice.getAddress().equals(mPairedDeviceAddress)) {
                                 Log.d(TAG, "BLE device found " + mBluetoothDevice.getName());
-                                mBluetoothLeService.connect(mBluetoothDevice.getAddress());
                                 mBluetoothLeService.connect(mBluetoothDevice.getAddress());
                             }
                         }
@@ -364,12 +385,13 @@ public class MainActivity extends AppCompatActivity {
             };
 
     /**
-     * Handles various events fired by the Service. TODO
+     * Handles various events fired by the BluetoothLeService.
      */
     private final BroadcastReceiver gattUpdateReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             final String action = intent.getAction();
+            String sendingDevice = intent.getStringExtra("Device Address");
             if (BluetoothLeService.ACTION_BLE_DATA_RECEIVED.equals(action)) {
                 Log.d(TAG, "Received the Blood Pressure data");
                 /* stop scanning */
@@ -450,7 +472,7 @@ public class MainActivity extends AppCompatActivity {
                     mAdapter = new ListAdapter(measurementsHistory);
                     mRecyclerView.setAdapter(mAdapter);
 
-                    if(isPaired) {
+                    if (isPaired) {
                         mRcvDataBtn.setVisibility(View.VISIBLE);
                     }
                 }
@@ -459,7 +481,8 @@ public class MainActivity extends AppCompatActivity {
             if (resultCode == DEVICE_PAIRED) {
                 if (data.hasExtra(DEVICE_PAIRED_KEY)) {
                     isPaired = data.getBooleanExtra(DEVICE_PAIRED_KEY, false);
-                    if(activeUser != null) {
+                    mPairedDeviceAddress = data.getStringExtra(PAIRED_DEVICE_ADDRESS);
+                    if (activeUser != null) {
                         mRcvDataBtn.setVisibility(View.VISIBLE);
                     }
                 }
@@ -467,7 +490,9 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    ///////////////////////////* Save data for the next onCreate *//////////////////////////////////
+    /**
+     * Save data for the next onCreate *
+     */
     @Override
     protected void onSaveInstanceState(@NonNull Bundle outState) {
         Log.d(TAG, "Trying to save instance ");
@@ -482,7 +507,9 @@ public class MainActivity extends AppCompatActivity {
         super.onSaveInstanceState(outState);
     }
 
-
+    /**
+     * bind to the BluetoothLeService
+     */
     public void doBindBleService() {
         if (!mIsBindBleService) {
             Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
@@ -492,6 +519,9 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * unbind from BluetoothLeService
+     */
     public void doUnbindBleRService() {
         if (mIsBindBleService) {
             unbindService(mServiceConnection);
@@ -521,5 +551,15 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return view;
+    }
+
+    /**
+     * Items in der recycler view have a white background. The background changes if a
+     * item is selected. Set the adapter, after context menu closes, to set the background
+     * for each element back to white. Else the selected item stays colored
+     */
+    public void onContextMenuClosed(Menu menu) {
+        super.onContextMenuClosed(menu);
+        mRecyclerView.setAdapter(mAdapter);
     }
 }

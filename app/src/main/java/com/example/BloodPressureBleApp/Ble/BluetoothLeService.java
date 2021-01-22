@@ -453,6 +453,7 @@ public class BluetoothLeService extends Service {
             intent.putExtra("Diastolic", diastolic_display);
             intent.putExtra("Pulse", pulse_display);
             intent.putExtra("Timestamp", timeStamp);
+            intent.putExtra("Device Address", gatt.getDevice().getAddress());
             sendBroadcast(intent);
         }
     }
